@@ -457,18 +457,6 @@
   <div class="app">
     <section class="hero">
       <div class="eyebrow">Simple glucose tracker</div>
-      <h1>Track glucose 3 or more times a day and spot your patterns fast.</h1>
-      <p>
-        Add readings like <strong>morning before exercise</strong>, <strong>morning after exercise</strong>,
-        before meals, after meals, afternoon, evening, or custom checks. Everything is saved in your browser,
-        organized in a table, analyzed into quick insights, and available as clean JSON.
-      </p>
-      <div class="tag-row">
-        <span class="tag">No login</span>
-        <span class="tag">Time dropdown</span>
-        <span class="tag">JSON export</span>
-        <span class="tag">Pattern summary</span>
-      </div>
     </section>
 
     <section class="grid">
@@ -614,37 +602,6 @@
       </div>
     </section>
 
-    <section class="grid">
-      <div class="card">
-        <h2>JSON data</h2>
-        <p class="lead">Your readings are also available as structured JSON.</p>
-        <div class="actions" style="margin-top: 0; margin-bottom: 14px;">
-          <button class="btn-secondary" type="button" id="copyJsonBtn">Copy JSON</button>
-          <button class="btn-secondary" type="button" id="downloadJsonBtn">Download JSON</button>
-          <button class="btn-secondary" type="button" id="clearAllBtn">Delete all data</button>
-        </div>
-        <div class="json-box">
-          <pre id="jsonOutput">[]</pre>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Example JSON format</h2>
-        <p class="lead">This is the kind of clean structure the site keeps for each reading.</p>
-        <div class="json-box">
-<pre>{
-  "id": 1713565200000,
-  "date": "2026-04-20",
-  "time": "06:30",
-  "readingType": "Morning before exercise",
-  "glucose": 92,
-  "unit": "mg/dL",
-  "exercise": "Before exercise",
-  "notes": "Fasted reading before treadmill"
-}</pre>
-        </div>
-      </div>
-    </section>
   </div>
 
   <script>
