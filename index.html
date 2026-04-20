@@ -634,407 +634,489 @@
       </div>
     </section>
   </div>
+<script>
+  const STORAGE_KEY = 'glucose-tracker-readings-v2';
+  const BACKUP_KEY = 'glucose-tracker-readings-backup-v2';
+  const META_KEY = 'glucose-tracker-meta-v2';
 
-  <script>
-    const STORAGE_KEY = 'glucose-tracker-readings-v1';
-    const form = document.getElementById('glucoseForm');
-    const timeSelect = document.getElementById('time');
-    const readingTypeSelect = document.getElementById('readingType');
-    const customTypeField = document.getElementById('customTypeField');
-    const customTypeInput = document.getElementById('customType');
-    const entriesTableBody = document.getElementById('entriesTableBody');
-    const mobileEntriesList = document.getElementById('mobileEntriesList');
-    const jsonOutput = document.getElementById('jsonOutput');
-    const totalReadingsEl = document.getElementById('totalReadings');
-    const avgGlucoseEl = document.getElementById('avgGlucose');
-    const daysTrackedEl = document.getElementById('daysTracked');
-    const patternList = document.getElementById('patternList');
-    const formAlert = document.getElementById('formAlert');
-    const dateInput = document.getElementById('date');
-    const resetBtn = document.getElementById('resetBtn');
-    const copyJsonBtn = document.getElementById('copyJsonBtn');
-    const downloadJsonBtn = document.getElementById('downloadJsonBtn');
-    const clearAllBtn = document.getElementById('clearAllBtn');
+  const form = document.getElementById('glucoseForm');
+  const timeSelect = document.getElementById('time');
+  const readingTypeSelect = document.getElementById('readingType');
+  const customTypeField = document.getElementById('customTypeField');
+  const customTypeInput = document.getElementById('customType');
+  const entriesTableBody = document.getElementById('entriesTableBody');
+  const mobileEntriesList = document.getElementById('mobileEntriesList');
+  const jsonOutput = document.getElementById('jsonOutput');
+  const totalReadingsEl = document.getElementById('totalReadings');
+  const avgGlucoseEl = document.getElementById('avgGlucose');
+  const daysTrackedEl = document.getElementById('daysTracked');
+  const patternList = document.getElementById('patternList');
+  const formAlert = document.getElementById('formAlert');
+  const dateInput = document.getElementById('date');
+  const resetBtn = document.getElementById('resetBtn');
+  const copyJsonBtn = document.getElementById('copyJsonBtn');
+  const downloadJsonBtn = document.getElementById('downloadJsonBtn');
+  const clearAllBtn = document.getElementById('clearAllBtn');
 
-    let readings = loadReadings();
-    let editingId = null;
+  let readings = loadReadings();
+  let editingId = null;
 
-    function buildTimeOptions() {
-      const times = [];
-      for (let hour = 0; hour < 24; hour++) {
-        for (let minute = 0; minute < 60; minute += 15) {
-          const hh = String(hour).padStart(2, '0');
-          const mm = String(minute).padStart(2, '0');
-          times.push(`${hh}:${mm}`);
-        }
-      }
+  requestPersistentStorage();
 
-      timeSelect.innerHTML = times
-        .map(time => `<option value="${time}">${formatDisplayTime(time)}</option>`)
-        .join('');
-    }
-
-    function formatDisplayTime(time24) {
-      const [hourStr, minute] = time24.split(':');
-      let hour = Number(hourStr);
-      const suffix = hour >= 12 ? 'PM' : 'AM';
-      hour = hour % 12 || 12;
-      return `${String(hour).padStart(2, '0')}:${minute} ${suffix}`;
-    }
-
-    function todayDateString() {
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const day = String(now.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    }
-
-    function currentRoundedTime() {
-      const now = new Date();
-      const minutes = now.getMinutes();
-      const roundedMinutes = Math.round(minutes / 15) * 15;
-      if (roundedMinutes === 60) {
-        now.setHours(now.getHours() + 1);
-        now.setMinutes(0);
-      } else {
-        now.setMinutes(roundedMinutes);
-      }
-      const hh = String(now.getHours()).padStart(2, '0');
-      const mm = String(now.getMinutes()).padStart(2, '0');
-      return `${hh}:${mm}`;
-    }
-
-    function loadReadings() {
-      try {
-        const data = localStorage.getItem(STORAGE_KEY);
-        return data ? JSON.parse(data) : [];
-      } catch (error) {
-        console.error('Failed to load readings:', error);
-        return [];
+  function buildTimeOptions() {
+    const times = [];
+    for (let hour = 0; hour < 24; hour++) {
+      for (let minute = 0; minute < 60; minute += 15) {
+        const hh = String(hour).padStart(2, '0');
+        const mm = String(minute).padStart(2, '0');
+        times.push(`${hh}:${mm}`);
       }
     }
 
-    function saveReadings() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(readings));
+    timeSelect.innerHTML = times
+      .map(time => `<option value="${time}">${formatDisplayTime(time)}</option>`)
+      .join('');
+  }
+
+  function formatDisplayTime(time24) {
+    const [hourStr, minute] = time24.split(':');
+    let hour = Number(hourStr);
+    const suffix = hour >= 12 ? 'PM' : 'AM';
+    hour = hour % 12 || 12;
+    return `${String(hour).padStart(2, '0')}:${minute} ${suffix}`;
+  }
+
+  function todayDateString() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function currentRoundedTime() {
+    const now = new Date();
+    const minutes = now.getMinutes();
+    const roundedMinutes = Math.round(minutes / 15) * 15;
+    if (roundedMinutes === 60) {
+      now.setHours(now.getHours() + 1);
+      now.setMinutes(0);
+    } else {
+      now.setMinutes(roundedMinutes);
+    }
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+  }
+
+  function isValidReadingArray(data) {
+    return Array.isArray(data) && data.every(item =>
+      item &&
+      typeof item === 'object' &&
+      'id' in item &&
+      'date' in item &&
+      'time' in item &&
+      'readingType' in item &&
+      'glucose' in item &&
+      'unit' in item &&
+      'exercise' in item &&
+      'notes' in item
+    );
+  }
+
+  function parseStorage(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return isValidReadingArray(parsed) ? parsed : null;
+    } catch (error) {
+      console.error(`Failed to parse storage key ${key}:`, error);
+      return null;
+    }
+  }
+
+  function loadReadings() {
+    const mainData = parseStorage(STORAGE_KEY);
+    const backupData = parseStorage(BACKUP_KEY);
+
+    if (mainData && backupData) {
+      return mainData.length >= backupData.length ? mainData : backupData;
     }
 
-    function showAlert(message, type = 'success') {
-      formAlert.textContent = message;
-      formAlert.className = `alert show ${type}`;
-      clearTimeout(showAlert._timer);
-      showAlert._timer = setTimeout(() => {
-        formAlert.className = 'alert';
-      }, 2800);
+    if (mainData) {
+      localStorage.setItem(BACKUP_KEY, JSON.stringify(mainData));
+      return mainData;
     }
 
-    function getFormData() {
-      const formData = new FormData(form);
-      const selectedType = formData.get('readingType');
-      const customType = (formData.get('customType') || '').toString().trim();
-      const readingType = selectedType === 'Custom' ? customType : selectedType;
-
-      return {
-        id: editingId || Date.now(),
-        date: formData.get('date').toString(),
-        time: formData.get('time').toString(),
-        readingType: readingType ? readingType.toString() : '',
-        glucose: Number(formData.get('glucose')),
-        unit: formData.get('unit').toString(),
-        exercise: formData.get('exercise').toString(),
-        notes: formData.get('notes').toString().trim()
-      };
+    if (backupData) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(backupData));
+      return backupData;
     }
 
-    function validateReading(reading) {
-      if (!reading.date || !reading.time || !reading.readingType) {
-        return 'Please complete the date, time, and reading type.';
+    return [];
+  }
+
+  function saveReadings() {
+    const cleanData = sortReadings(readings).map(item => ({
+      id: item.id,
+      date: item.date,
+      time: item.time,
+      readingType: item.readingType,
+      glucose: Number(item.glucose),
+      unit: item.unit,
+      exercise: item.exercise,
+      notes: item.notes || ''
+    }));
+
+    const serialized = JSON.stringify(cleanData);
+
+    try {
+      localStorage.setItem(STORAGE_KEY, serialized);
+      localStorage.setItem(BACKUP_KEY, serialized);
+      localStorage.setItem(META_KEY, JSON.stringify({
+        lastSavedAt: new Date().toISOString(),
+        total: cleanData.length
+      }));
+    } catch (error) {
+      console.error('Failed to save readings:', error);
+      showAlert('Could not save in browser storage. Storage may be full.', 'error');
+    }
+  }
+
+  async function requestPersistentStorage() {
+    try {
+      if (navigator.storage && navigator.storage.persist) {
+        await navigator.storage.persist();
       }
-      if (!Number.isFinite(reading.glucose) || reading.glucose <= 0) {
-        return 'Please enter a valid glucose number.';
-      }
-      return '';
+    } catch (error) {
+      console.warn('Persistent storage request failed:', error);
+    }
+  }
+
+  function showAlert(message, type = 'success') {
+    formAlert.textContent = message;
+    formAlert.className = `alert show ${type}`;
+    clearTimeout(showAlert._timer);
+    showAlert._timer = setTimeout(() => {
+      formAlert.className = 'alert';
+    }, 2800);
+  }
+
+  function getFormData() {
+    const formData = new FormData(form);
+    const selectedType = formData.get('readingType');
+    const customType = (formData.get('customType') || '').toString().trim();
+    const readingType = selectedType === 'Custom' ? customType : selectedType;
+
+    return {
+      id: editingId || Date.now(),
+      date: formData.get('date').toString(),
+      time: formData.get('time').toString(),
+      readingType: readingType ? readingType.toString() : '',
+      glucose: Number(formData.get('glucose')),
+      unit: formData.get('unit').toString(),
+      exercise: formData.get('exercise').toString(),
+      notes: formData.get('notes').toString().trim()
+    };
+  }
+
+  function validateReading(reading) {
+    if (!reading.date || !reading.time || !reading.readingType) {
+      return 'Please complete the date, time, and reading type.';
+    }
+    if (!Number.isFinite(reading.glucose) || reading.glucose <= 0) {
+      return 'Please enter a valid glucose number.';
+    }
+    return '';
+  }
+
+  function sortReadings(list) {
+    return [...list].sort((a, b) => {
+      const aKey = `${a.date}T${a.time}`;
+      const bKey = `${b.date}T${b.time}`;
+      return bKey.localeCompare(aKey);
+    });
+  }
+
+  function renderEntries() {
+    const sorted = sortReadings(readings);
+
+    if (!sorted.length) {
+      entriesTableBody.innerHTML = '<tr><td colspan="7" class="empty">No readings yet.</td></tr>';
+      mobileEntriesList.innerHTML = '<div class="empty">No readings yet.</div>';
+      return;
     }
 
-    function sortReadings(list) {
-      return [...list].sort((a, b) => {
-        const aKey = `${a.date}T${a.time}`;
-        const bKey = `${b.date}T${b.time}`;
-        return bKey.localeCompare(aKey);
-      });
-    }
-
-    function renderEntries() {
-      const sorted = sortReadings(readings);
-
-      if (!sorted.length) {
-        entriesTableBody.innerHTML = '<tr><td colspan="7" class="empty">No readings yet.</td></tr>';
-        mobileEntriesList.innerHTML = '<div class="empty">No readings yet.</div>';
-        return;
-      }
-
-      entriesTableBody.innerHTML = sorted.map(entry => `
-        <tr>
-          <td>${entry.date}</td>
-          <td>${formatDisplayTime(entry.time)}</td>
-          <td>
-            <div class="entry-tags">
-              <span class="tag">${escapeHtml(entry.readingType)}</span>
-              <span class="tag">${escapeHtml(entry.unit)}</span>
-            </div>
-          </td>
-          <td><strong>${entry.glucose}</strong></td>
-          <td>${escapeHtml(entry.exercise)}</td>
-          <td>${entry.notes ? escapeHtml(entry.notes) : '<span class="small">No notes</span>'}</td>
-          <td>
-            <div class="entry-actions">
-              <button class="mini-btn mini-edit" onclick="editReading(${entry.id})">Edit</button>
-              <button class="mini-btn mini-danger" onclick="deleteReading(${entry.id})">Delete</button>
-            </div>
-          </td>
-        </tr>
-      `).join('');
-
-      mobileEntriesList.innerHTML = sorted.map(entry => `
-        <article class="mobile-entry">
-          <div class="mobile-entry-top">
-            <div>
-              <div class="entry-tags">
-                <span class="tag">${escapeHtml(entry.readingType)}</span>
-                <span class="tag">${escapeHtml(entry.unit)}</span>
-              </div>
-            </div>
-            <div class="mobile-entry-value">${entry.glucose}</div>
+    entriesTableBody.innerHTML = sorted.map(entry => `
+      <tr>
+        <td>${entry.date}</td>
+        <td>${formatDisplayTime(entry.time)}</td>
+        <td>
+          <div class="entry-tags">
+            <span class="tag">${escapeHtml(entry.readingType)}</span>
+            <span class="tag">${escapeHtml(entry.unit)}</span>
           </div>
-
-          <div class="mobile-meta">
-            <div class="mobile-meta-row"><span>Date</span><strong>${entry.date}</strong></div>
-            <div class="mobile-meta-row"><span>Time</span><strong>${formatDisplayTime(entry.time)}</strong></div>
-            <div class="mobile-meta-row"><span>Exercise</span><strong>${escapeHtml(entry.exercise)}</strong></div>
-          </div>
-
-          <div class="mobile-notes small">${entry.notes ? escapeHtml(entry.notes) : 'No notes'}</div>
-
+        </td>
+        <td><strong>${entry.glucose}</strong></td>
+        <td>${escapeHtml(entry.exercise)}</td>
+        <td>${entry.notes ? escapeHtml(entry.notes) : '<span class="small">No notes</span>'}</td>
+        <td>
           <div class="entry-actions">
             <button class="mini-btn mini-edit" onclick="editReading(${entry.id})">Edit</button>
             <button class="mini-btn mini-danger" onclick="deleteReading(${entry.id})">Delete</button>
           </div>
-        </article>
-      `).join('');
+        </td>
+      </tr>
+    `).join('');
+
+    mobileEntriesList.innerHTML = sorted.map(entry => `
+      <article class="mobile-entry">
+        <div class="mobile-entry-top">
+          <div>
+            <div class="entry-tags">
+              <span class="tag">${escapeHtml(entry.readingType)}</span>
+              <span class="tag">${escapeHtml(entry.unit)}</span>
+            </div>
+          </div>
+          <div class="mobile-entry-value">${entry.glucose}</div>
+        </div>
+
+        <div class="mobile-meta">
+          <div class="mobile-meta-row"><span>Date</span><strong>${entry.date}</strong></div>
+          <div class="mobile-meta-row"><span>Time</span><strong>${formatDisplayTime(entry.time)}</strong></div>
+          <div class="mobile-meta-row"><span>Exercise</span><strong>${escapeHtml(entry.exercise)}</strong></div>
+        </div>
+
+        <div class="mobile-notes small">${entry.notes ? escapeHtml(entry.notes) : 'No notes'}</div>
+
+        <div class="entry-actions">
+          <button class="mini-btn mini-edit" onclick="editReading(${entry.id})">Edit</button>
+          <button class="mini-btn mini-danger" onclick="deleteReading(${entry.id})">Delete</button>
+        </div>
+      </article>
+    `).join('');
+  }
+
+  function renderStatsAndPatterns() {
+    totalReadingsEl.textContent = readings.length;
+
+    if (!readings.length) {
+      avgGlucoseEl.textContent = '0';
+      daysTrackedEl.textContent = '0';
+      patternList.innerHTML = '<li>Add a few readings to start analyzing your patterns.</li>';
+      return;
     }
 
-    function renderStatsAndPatterns() {
-      totalReadingsEl.textContent = readings.length;
+    const avg = readings.reduce((sum, item) => sum + Number(item.glucose), 0) / readings.length;
+    avgGlucoseEl.textContent = `${avg.toFixed(1)} ${readings[0].unit}`;
 
-      if (!readings.length) {
-        avgGlucoseEl.textContent = '0';
-        daysTrackedEl.textContent = '0';
-        patternList.innerHTML = '<li>Add a few readings to start analyzing your patterns.</li>';
-        return;
+    const uniqueDays = new Set(readings.map(item => item.date));
+    daysTrackedEl.textContent = uniqueDays.size;
+
+    const patterns = analyzePatterns(readings);
+    patternList.innerHTML = patterns.map(item => `<li>${escapeHtml(item)}</li>`).join('');
+  }
+
+  function analyzePatterns(data) {
+    const insights = [];
+
+    const byType = data.reduce((acc, item) => {
+      if (!acc[item.readingType]) acc[item.readingType] = [];
+      acc[item.readingType].push(Number(item.glucose));
+      return acc;
+    }, {});
+
+    Object.entries(byType).forEach(([type, values]) => {
+      const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
+      insights.push(`${type}: average ${avg.toFixed(1)} from ${values.length} reading${values.length > 1 ? 's' : ''}.`);
+    });
+
+    const beforeExercise = data.filter(item => item.exercise === 'Before exercise');
+    const afterExercise = data.filter(item => item.exercise === 'After exercise');
+
+    if (beforeExercise.length && afterExercise.length) {
+      const beforeAvg = beforeExercise.reduce((sum, item) => sum + item.glucose, 0) / beforeExercise.length;
+      const afterAvg = afterExercise.reduce((sum, item) => sum + item.glucose, 0) / afterExercise.length;
+      const difference = afterAvg - beforeAvg;
+
+      if (difference > 0.5) {
+        insights.push(`Average after exercise is ${difference.toFixed(1)} higher than before exercise.`);
+      } else if (difference < -0.5) {
+        insights.push(`Average after exercise is ${Math.abs(difference).toFixed(1)} lower than before exercise.`);
+      } else {
+        insights.push('Before and after exercise averages are very similar so far.');
       }
-
-      const avg = readings.reduce((sum, item) => sum + Number(item.glucose), 0) / readings.length;
-      avgGlucoseEl.textContent = `${avg.toFixed(1)} ${readings[0].unit}`;
-
-      const uniqueDays = new Set(readings.map(item => item.date));
-      daysTrackedEl.textContent = uniqueDays.size;
-
-      const patterns = analyzePatterns(readings);
-      patternList.innerHTML = patterns.map(item => `<li>${escapeHtml(item)}</li>`).join('');
     }
 
-    function analyzePatterns(data) {
-      const insights = [];
-
-      const byType = data.reduce((acc, item) => {
-        if (!acc[item.readingType]) acc[item.readingType] = [];
-        acc[item.readingType].push(Number(item.glucose));
+    const datesWith3Plus = Object.values(
+      data.reduce((acc, item) => {
+        if (!acc[item.date]) acc[item.date] = 0;
+        acc[item.date] += 1;
         return acc;
-      }, {});
+      }, {})
+    ).filter(count => count >= 3).length;
 
-      Object.entries(byType).forEach(([type, values]) => {
-        const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
-        insights.push(`${type}: average ${avg.toFixed(1)} from ${values.length} reading${values.length > 1 ? 's' : ''}.`);
-      });
+    insights.push(`${datesWith3Plus} day${datesWith3Plus === 1 ? '' : 's'} with 3 or more readings logged.`);
 
-      const beforeExercise = data.filter(item => item.exercise === 'Before exercise');
-      const afterExercise = data.filter(item => item.exercise === 'After exercise');
-
-      if (beforeExercise.length && afterExercise.length) {
-        const beforeAvg = beforeExercise.reduce((sum, item) => sum + item.glucose, 0) / beforeExercise.length;
-        const afterAvg = afterExercise.reduce((sum, item) => sum + item.glucose, 0) / afterExercise.length;
-        const difference = afterAvg - beforeAvg;
-
-        if (difference > 0.5) {
-          insights.push(`Average after exercise is ${difference.toFixed(1)} higher than before exercise.`);
-        } else if (difference < -0.5) {
-          insights.push(`Average after exercise is ${Math.abs(difference).toFixed(1)} lower than before exercise.`);
-        } else {
-          insights.push('Before and after exercise averages are very similar so far.');
-        }
-      }
-
-      const datesWith3Plus = Object.values(
-        data.reduce((acc, item) => {
-          if (!acc[item.date]) acc[item.date] = 0;
-          acc[item.date] += 1;
-          return acc;
-        }, {})
-      ).filter(count => count >= 3).length;
-
-      insights.push(`${datesWith3Plus} day${datesWith3Plus === 1 ? '' : 's'} with 3 or more readings logged.`);
-
-      const sorted = sortReadings(data);
-      const latest = sorted[0];
-      if (latest) {
-        insights.push(`Latest entry: ${latest.date} at ${formatDisplayTime(latest.time)} — ${latest.glucose} ${latest.unit} (${latest.readingType}).`);
-      }
-
-      return insights.slice(0, 8);
+    const sorted = sortReadings(data);
+    const latest = sorted[0];
+    if (latest) {
+      insights.push(`Latest entry: ${latest.date} at ${formatDisplayTime(latest.time)} — ${latest.glucose} ${latest.unit} (${latest.readingType}).`);
     }
 
-    function renderJson() {
-      jsonOutput.textContent = JSON.stringify(sortReadings(readings), null, 2);
-    }
+    return insights.slice(0, 8);
+  }
 
-    function refreshUI() {
-      saveReadings();
-      renderEntries();
-      renderStatsAndPatterns();
-      renderJson();
-    }
+  function renderJson() {
+    jsonOutput.textContent = JSON.stringify(sortReadings(readings), null, 2);
+  }
 
-    function resetForm() {
-      form.reset();
-      editingId = null;
-      dateInput.value = todayDateString();
-      timeSelect.value = currentRoundedTime();
-      document.getElementById('unit').value = 'mg/dL';
-      document.getElementById('exercise').value = 'Before exercise';
-      readingTypeSelect.value = 'Morning before exercise';
+  function refreshUI() {
+    saveReadings();
+    renderEntries();
+    renderStatsAndPatterns();
+    renderJson();
+  }
+
+  function resetForm() {
+    form.reset();
+    editingId = null;
+    dateInput.value = todayDateString();
+    timeSelect.value = currentRoundedTime();
+    document.getElementById('unit').value = 'mg/dL';
+    document.getElementById('exercise').value = 'Before exercise';
+    readingTypeSelect.value = 'Morning before exercise';
+    customTypeField.style.display = 'none';
+    customTypeInput.value = '';
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function editReading(id) {
+    const entry = readings.find(item => item.id === id);
+    if (!entry) return;
+
+    editingId = id;
+    dateInput.value = entry.date;
+    timeSelect.value = entry.time;
+    document.getElementById('glucose').value = entry.glucose;
+    document.getElementById('unit').value = entry.unit;
+    document.getElementById('exercise').value = entry.exercise;
+    document.getElementById('notes').value = entry.notes || '';
+
+    const builtInOption = [...readingTypeSelect.options].some(option => option.value === entry.readingType);
+    if (builtInOption) {
+      readingTypeSelect.value = entry.readingType;
       customTypeField.style.display = 'none';
       customTypeInput.value = '';
+    } else {
+      readingTypeSelect.value = 'Custom';
+      customTypeField.style.display = 'block';
+      customTypeInput.value = entry.readingType;
     }
 
-    function escapeHtml(value) {
-      return String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showAlert('Reading loaded for editing.', 'success');
+  }
 
-    function editReading(id) {
-      const entry = readings.find(item => item.id === id);
-      if (!entry) return;
-
-      editingId = id;
-      dateInput.value = entry.date;
-      timeSelect.value = entry.time;
-      document.getElementById('glucose').value = entry.glucose;
-      document.getElementById('unit').value = entry.unit;
-      document.getElementById('exercise').value = entry.exercise;
-      document.getElementById('notes').value = entry.notes || '';
-
-      const builtInOption = [...readingTypeSelect.options].some(option => option.value === entry.readingType);
-      if (builtInOption) {
-        readingTypeSelect.value = entry.readingType;
-        customTypeField.style.display = 'none';
-        customTypeInput.value = '';
-      } else {
-        readingTypeSelect.value = 'Custom';
-        customTypeField.style.display = 'block';
-        customTypeInput.value = entry.readingType;
-      }
-
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      showAlert('Reading loaded for editing.', 'success');
-    }
-
-    function deleteReading(id) {
-      readings = readings.filter(item => item.id !== id);
-      if (editingId === id) {
-        editingId = null;
-        resetForm();
-      }
-      refreshUI();
-      showAlert('Reading deleted.', 'success');
-    }
-
-    function downloadJson() {
-      const blob = new Blob([JSON.stringify(sortReadings(readings), null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'glucose-readings.json';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    }
-
-    readingTypeSelect.addEventListener('change', () => {
-      const isCustom = readingTypeSelect.value === 'Custom';
-      customTypeField.style.display = isCustom ? 'block' : 'none';
-      if (!isCustom) customTypeInput.value = '';
-    });
-
-    form.addEventListener('submit', (event) => {
-      event.preventDefault();
-      const reading = getFormData();
-      const error = validateReading(reading);
-
-      if (error) {
-        showAlert(error, 'error');
-        return;
-      }
-
-      const existingIndex = readings.findIndex(item => item.id === reading.id);
-      if (existingIndex >= 0) {
-        readings[existingIndex] = reading;
-        showAlert('Reading updated.', 'success');
-      } else {
-        readings.push(reading);
-        showAlert('Reading saved.', 'success');
-      }
-
-      refreshUI();
-      resetForm();
-    });
-
-    resetBtn.addEventListener('click', () => {
-      resetForm();
-      showAlert('Form cleared.', 'success');
-    });
-
-    copyJsonBtn.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(JSON.stringify(sortReadings(readings), null, 2));
-        showAlert('JSON copied to clipboard.', 'success');
-      } catch (error) {
-        showAlert('Could not copy JSON in this browser.', 'error');
-      }
-    });
-
-    downloadJsonBtn.addEventListener('click', downloadJson);
-
-    clearAllBtn.addEventListener('click', () => {
-      const confirmed = window.confirm('Delete all glucose readings? This cannot be undone.');
-      if (!confirmed) return;
-      readings = [];
+  function deleteReading(id) {
+    readings = readings.filter(item => item.id !== id);
+    if (editingId === id) {
       editingId = null;
-      refreshUI();
       resetForm();
-      showAlert('All data deleted.', 'success');
-    });
-
-    buildTimeOptions();
-    resetForm();
+    }
     refreshUI();
+    showAlert('Reading deleted.', 'success');
+  }
 
-    window.editReading = editReading;
-    window.deleteReading = deleteReading;
-  </script>
+  function downloadJson() {
+    const blob = new Blob([JSON.stringify(sortReadings(readings), null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'glucose-readings.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  readingTypeSelect.addEventListener('change', () => {
+    const isCustom = readingTypeSelect.value === 'Custom';
+    customTypeField.style.display = isCustom ? 'block' : 'none';
+    if (!isCustom) customTypeInput.value = '';
+  });
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const reading = getFormData();
+    const error = validateReading(reading);
+
+    if (error) {
+      showAlert(error, 'error');
+      return;
+    }
+
+    const existingIndex = readings.findIndex(item => item.id === reading.id);
+    if (existingIndex >= 0) {
+      readings[existingIndex] = reading;
+      showAlert('Reading updated.', 'success');
+    } else {
+      readings.push(reading);
+      showAlert('Reading saved.', 'success');
+    }
+
+    refreshUI();
+    resetForm();
+  });
+
+  resetBtn.addEventListener('click', () => {
+    resetForm();
+    showAlert('Form cleared.', 'success');
+  });
+
+  copyJsonBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(sortReadings(readings), null, 2));
+      showAlert('JSON copied to clipboard.', 'success');
+    } catch (error) {
+      showAlert('Could not copy JSON in this browser.', 'error');
+    }
+  });
+
+  downloadJsonBtn.addEventListener('click', downloadJson);
+
+  clearAllBtn.addEventListener('click', () => {
+    const confirmed = window.confirm('Delete all glucose readings? This cannot be undone.');
+    if (!confirmed) return;
+    readings = [];
+    editingId = null;
+    refreshUI();
+    resetForm();
+    showAlert('All data deleted.', 'success');
+  });
+
+  window.addEventListener('storage', () => {
+    readings = loadReadings();
+    renderEntries();
+    renderStatsAndPatterns();
+    renderJson();
+  });
+
+  buildTimeOptions();
+  resetForm();
+  refreshUI();
+
+  window.editReading = editReading;
+  window.deleteReading = deleteReading;
+</script>
 </body>
 </html>
